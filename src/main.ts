@@ -1,115 +1,83 @@
-// @deno-types="npm:@types/leaflet"
+// Imports
 import leaflet from "leaflet";
-
-// Style sheets
-import "leaflet/dist/leaflet.css"; // supporting style for Leaflet
-import "./style.css"; // student-controlled page style
-
-// Fix missing marker images
-import "./_leafletWorkaround.ts"; // fixes for missing Leaflet images
-
-// Import our luck function
+import "leaflet/dist/leaflet.css";
+import "./style.css";
+import "./_leafletWorkaround.ts";
 import luck from "./_luck.ts";
+import coin from "./coin.png";
 
 // Create basic UI elements
-
-const controlPanelDiv = document.createElement("div");
-controlPanelDiv.id = "controlPanel";
-document.body.append(controlPanelDiv);
-
 const mapDiv = document.createElement("div");
 mapDiv.id = "map";
 document.body.append(mapDiv);
 
-const statusPanelDiv = document.createElement("div");
-statusPanelDiv.id = "statusPanel";
-document.body.append(statusPanelDiv);
+// Initialize map
+const initialCoord = leaflet.latLng(36.997936938057016, -122.05703507501151);
+const tiles = leaflet.latLng(36.997886938057016, -122.05708507501151);
+const size = 1e-4;
+const map = leaflet.map("map").setView(initialCoord, 19);
+const grid = leaflet.layerGroup().addTo(map);
 
-// Our classroom location
-const CLASSROOM_LATLNG = leaflet.latLng(
-  36.997936938057016,
-  -122.05703507501151,
-);
+leaflet.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19,
+  attribution:
+    '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+}).addTo(map);
 
-// Tunable gameplay parameters
-const GAMEPLAY_ZOOM_LEVEL = 19;
-const TILE_DEGREES = 1e-4;
-const NEIGHBORHOOD_SIZE = 10;
-const CACHE_SPAWN_PROBABILITY = 0.5;
+//placeholder character
+const player = leaflet.marker(initialCoord);
+player.addTo(map);
 
-// Create the map (element with id "map" is defined in index.html)
-const map = leaflet.map(mapDiv, {
-  center: CLASSROOM_LATLNG,
-  zoom: GAMEPLAY_ZOOM_LEVEL,
-  minZoom: GAMEPLAY_ZOOM_LEVEL,
-  maxZoom: GAMEPLAY_ZOOM_LEVEL,
-  zoomControl: false,
-  scrollWheelZoom: false,
-});
-
-// Populate the map with a background tile layer
-leaflet
-  .tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution:
-      '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-  })
-  .addTo(map);
-
-// Add a marker to represent the player
-const playerMarker = leaflet.marker(CLASSROOM_LATLNG);
-playerMarker.bindTooltip("That's you!");
-playerMarker.addTo(map);
-
-// Display the player's points
-let playerPoints = 0;
-statusPanelDiv.innerHTML = "No points yet...";
-
-// Add caches to the map by cell numbers
+// Token spawn function
 function spawnCache(i: number, j: number) {
-  // Convert cell numbers into lat/lng bounds
-  const origin = CLASSROOM_LATLNG;
-  const bounds = leaflet.latLngBounds([
-    [origin.lat + i * TILE_DEGREES, origin.lng + j * TILE_DEGREES],
-    [origin.lat + (i + 1) * TILE_DEGREES, origin.lng + (j + 1) * TILE_DEGREES],
-  ]);
+  const origin = tiles;
+  const spawn = leaflet.latLng(
+    origin.lat + (i + 0.5) * size,
+    origin.lng + (j + 0.5) * size,
+  );
 
-  // Add a rectangle to the map to represent the cache
-  const rect = leaflet.rectangle(bounds);
-  rect.addTo(map);
-
-  // Handle interactions with the cache
-  rect.bindPopup(() => {
-    // Each cache has a random point value, mutable by the player
-    let pointValue = Math.floor(luck([i, j, "initialValue"].toString()) * 100);
-
-    // The popup offers a description and button
-    const popupDiv = document.createElement("div");
-    popupDiv.innerHTML = `
-                <div>There is a cache here at "${i},${j}". It has value <span id="value">${pointValue}</span>.</div>
-                <button id="poke">poke</button>`;
-
-    // Clicking the button decrements the cache's value and increments the player's points
-    popupDiv
-      .querySelector<HTMLButtonElement>("#poke")!
-      .addEventListener("click", () => {
-        pointValue--;
-        popupDiv.querySelector<HTMLSpanElement>("#value")!.innerHTML =
-          pointValue.toString();
-        playerPoints++;
-        statusPanelDiv.innerHTML = `${playerPoints} points accumulated`;
-      });
-
-    return popupDiv;
+  const tokenDiv = document.createElement("div");
+  tokenDiv.className = "token";
+  const tokenImage = document.createElement("img");
+  tokenImage.src = coin;
+  tokenDiv.appendChild(tokenImage);
+  const tokenValue = document.createElement("span");
+  tokenValue.innerHTML = "1";
+  tokenDiv.appendChild(tokenValue);
+  const tokenIcon = leaflet.divIcon({
+    className: "token-icon",
+    html: tokenDiv,
+    iconSize: [32, 32],
   });
+
+  const token = leaflet.marker(spawn, { icon: tokenIcon });
+  token.addTo(map);
 }
 
-// Look around the player's neighborhood for caches to spawn
-for (let i = -NEIGHBORHOOD_SIZE; i < NEIGHBORHOOD_SIZE; i++) {
-  for (let j = -NEIGHBORHOOD_SIZE; j < NEIGHBORHOOD_SIZE; j++) {
-    // If location i,j is lucky enough, spawn a cache!
-    if (luck([i, j].toString()) < CACHE_SPAWN_PROBABILITY) {
-      spawnCache(i, j);
+// Draw grid and spawn tokens
+function drawGrid() {
+  grid.clearLayers();
+  const origin = tiles;
+  const bounds = map.getBounds();
+  const minLatitude = Math.floor((bounds.getSouth() - origin.lat) / size);
+  const maxLatitude = Math.floor((bounds.getNorth() - origin.lat) / size);
+  const minLongitude = Math.floor((bounds.getWest() - origin.lng) / size);
+  const maxLongitude = Math.floor((bounds.getEast() - origin.lng) / size);
+  for (let i = minLatitude; i <= maxLatitude; i++) {
+    for (let j = minLongitude; j <= maxLongitude; j++) {
+      const bounds = leaflet.latLngBounds([
+        [origin.lat + i * size, origin.lng + j * size],
+        [origin.lat + (i + 1) * size, origin.lng + (j + 1) * size],
+      ]);
+      const rect = leaflet.rectangle(bounds, { color: "#666" });
+      grid.addLayer(rect);
+      if (luck([i, j].toString()) < 0.2) {
+        spawnCache(i, j);
+      }
     }
   }
 }
+
+map.on("moveend zoomend", drawGrid);
+player.on("move", drawGrid);
+drawGrid();

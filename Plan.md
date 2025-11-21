@@ -19,10 +19,10 @@ Key gameplay challenge: Can players collect and craft tokens from nearby locatio
 
 #### Steps
 
-- [ ] Draw one grid cell (as rectangle) near player
-- [ ] Loop to generate a 5×5 grid of cells around player
-- [ ] Use `luck()` to randomly spawn value-1 tokens in cells (deterministic per cell)
-- [ ] Display token value inside each cell (text or simple graphic)
+- [x] Draw one grid cell (as rectangle) near player
+- [x] Loop to generate cells around the player
+- [x] Use `luck()` to randomly spawn tokens into the cells
+- [x] Display token value inside each cell
 - [ ] Make cells clickable only if within 3-cell radius of player
 - [ ] Implement token pickup
 - [ ] Show held token on screen
