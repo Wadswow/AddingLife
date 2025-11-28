@@ -28,4 +28,4 @@ Key gameplay challenge: Can players collect and craft tokens from nearby locatio
 - [x] Show held token on screen
 - [x] Implement crafting
 - [x] End game when player crafts target value
-- [ ] Add one cleanup commit
+- [ ] One cleanup commit

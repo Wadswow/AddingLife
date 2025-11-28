@@ -27,6 +27,7 @@ leaflet.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
 //placeholder character
 const player = leaflet.marker(initialCoord);
 player.addTo(map);
+const playerLocation = player.getLatLng();
 
 //initialize token storage
 const tokensLayer = leaflet.layerGroup().addTo(map);
@@ -52,12 +53,17 @@ function keyFor(i: number, j: number) {
   return `${i},${j}`;
 }
 
+function tokenCall(key: string) {
+  const token = tokens.get(key);
+  return token;
+}
+
 function updateHeldUI() {
   heldDiv.textContent = `Held: ${heldToken ?? "—"}`;
 }
 
 function updateValue(key: string, newValue: number) {
-  const token = tokens.get(key);
+  const token = tokenCall(key);
   if (!token || token.collected) return;
   token.value = newValue;
   if (token.marker) {
@@ -67,9 +73,10 @@ function updateValue(key: string, newValue: number) {
   }
 }
 
+// Token pick-up function/win condition
 function pickUp(key: string) {
   if (heldToken !== null) return;
-  const grab = tokens.get(key);
+  const grab = tokenCall(key);
   if (!grab || grab.collected) return;
   grab.collected = true;
   if (grab.marker) {
@@ -87,19 +94,15 @@ function pickUp(key: string) {
 // Token spawn function
 function spawnToken(i: number, j: number, interactive = false, value = 1) {
   const key = keyFor(i, j);
-  const existing = tokens.get(key);
-  if (existing && !existing.collected) {
-    return;
-  }
-  if (existing && existing.collected) {
-    return;
-  }
-  const origin = tiles;
+  const existing = tokenCall(key);
+  if (existing && !existing.collected) return;
+  if (existing && existing.collected) return;
   const spawn = leaflet.latLng(
-    origin.lat + (i + 0.5) * size,
-    origin.lng + (j + 0.5) * size,
+    tiles.lat + (i + 0.5) * size,
+    tiles.lng + (j + 0.5) * size,
   );
 
+  // Create token
   const tokenDiv = document.createElement("div");
   tokenDiv.className = "token";
   const tokenImage = document.createElement("img");
@@ -114,6 +117,7 @@ function spawnToken(i: number, j: number, interactive = false, value = 1) {
     iconSize: [32, 32],
   });
 
+  // Add token to map
   const token = leaflet.marker(spawn, { icon: tokenIcon, interactive });
   token.on("click", () => {
     collect(i, j, key);
@@ -122,11 +126,10 @@ function spawnToken(i: number, j: number, interactive = false, value = 1) {
   tokens.set(key, { marker: token, value, collected: false });
 }
 
+// Token handling function
 function collect(i: number, j: number, key: string) {
-  const origin = tiles;
-  const p = player.getLatLng();
-  const playerI = Math.floor((p.lat - origin.lat) / size);
-  const playerJ = Math.floor((p.lng - origin.lng) / size);
+  const playerI = Math.floor((playerLocation.lat - tiles.lat) / size);
+  const playerJ = Math.floor((playerLocation.lng - tiles.lng) / size);
   if (
     Math.abs(i - playerI) > pickupRadius || Math.abs(j - playerJ) > pickupRadius
   ) return;
@@ -137,9 +140,10 @@ function collect(i: number, j: number, key: string) {
   pickUp(key);
 }
 
+//token crafting function
 function craftToken(i: number, j: number) {
   const key = keyFor(i, j);
-  const existing = tokens.get(key);
+  const existing = tokenCall(key);
   if (existing && !existing.collected) {
     if (existing.value === heldToken) {
       const newValue = heldToken * 2;
@@ -159,20 +163,18 @@ function craftToken(i: number, j: number) {
 // Draw grid and spawn tokens
 function drawGrid() {
   grid.clearLayers();
-  const origin = tiles;
   const bounds = map.getBounds();
-  const p = player.getLatLng();
-  const playerI = Math.floor((p.lat - origin.lat) / size);
-  const playerJ = Math.floor((p.lng - origin.lng) / size);
-  const minLatitude = Math.floor((bounds.getSouth() - origin.lat) / size);
-  const maxLatitude = Math.floor((bounds.getNorth() - origin.lat) / size);
-  const minLongitude = Math.floor((bounds.getWest() - origin.lng) / size);
-  const maxLongitude = Math.floor((bounds.getEast() - origin.lng) / size);
+  const playerI = Math.floor((playerLocation.lat - tiles.lat) / size);
+  const playerJ = Math.floor((playerLocation.lng - tiles.lng) / size);
+  const minLatitude = Math.floor((bounds.getSouth() - tiles.lat) / size);
+  const maxLatitude = Math.floor((bounds.getNorth() - tiles.lat) / size);
+  const minLongitude = Math.floor((bounds.getWest() - tiles.lng) / size);
+  const maxLongitude = Math.floor((bounds.getEast() - tiles.lng) / size);
   for (let i = minLatitude; i <= maxLatitude; i++) {
     for (let j = minLongitude; j <= maxLongitude; j++) {
       const bounds = leaflet.latLngBounds([
-        [origin.lat + i * size, origin.lng + j * size],
-        [origin.lat + (i + 1) * size, origin.lng + (j + 1) * size],
+        [tiles.lat + i * size, tiles.lng + j * size],
+        [tiles.lat + (i + 1) * size, tiles.lng + (j + 1) * size],
       ]);
       const isPlayerCell = i === playerI && j === playerJ;
       const isWithinRadius = Math.abs(i - playerI) <= 3 &&
@@ -189,6 +191,7 @@ function drawGrid() {
   }
 }
 
+//initialize and handle map movements
 map.on("moveend zoomend", drawGrid);
 player.on("move", drawGrid);
 drawGrid();

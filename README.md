@@ -1,3 +1,5 @@
-# CMPM 121 D3 Project
+# Adding Life
 
-This is the starting point for your CMPM 121 D3 project. Students should make sure to remove _this_ content from their README.md file and replace it with their own project documentation.
+## Basic Gameplay (D3.a)
+
+I went about adding in some of the basic gameplay functions of this game. So the basics of drawing the map using DrawGrid which handles drawing the map grid along with adding tokens to the map. From there the spawnToken function spawns in the coins and gives each of them a handler for when they are clicked on. Then from there we have the gameplay side of things so the collect function handles collecting and whether or not the intention is to craft. From there if it is crafting then it goes to craftToken which creates a new token with the new value and places that token onto the map where the old token was however with the new value. With the use of various helper functions the code comes together to create the basic gameplay. For my cleanup however I went and looked at useless variables and removed them and then took repeated calls and either made them into helper functions (in the example of tokenCall) or made them global variables if they are called very often (such as playerLocation).
