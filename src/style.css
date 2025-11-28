@@ -26,3 +26,16 @@
   pointer-events: none;
   user-select: none;
 }
+
+.held-token {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  padding: 52px 24px;
+  border-radius: 8px;
+  font-weight: 700;
+  z-index: 1000;
+  font-size: 24px;
+}
