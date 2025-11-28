@@ -56,24 +56,42 @@ function updateHeldUI() {
   heldDiv.textContent = `Held: ${heldToken ?? "—"}`;
 }
 
+function updateValue(key: string, newValue: number) {
+  const token = tokens.get(key);
+  if (!token || token.collected) return;
+  token.value = newValue;
+  if (token.marker) {
+    const tokenElement = token.marker.getElement();
+    const valueLabel = tokenElement!.querySelector("span");
+    valueLabel!.innerHTML = newValue.toString();
+  }
+}
+
 function pickUp(key: string) {
   if (heldToken !== null) return;
-  const entry = tokens.get(key);
-  if (!entry || entry.collected) return;
-  entry.collected = true;
-  if (entry.marker) {
-    entry.marker.remove();
-    entry.marker = undefined;
+  const grab = tokens.get(key);
+  if (!grab || grab.collected) return;
+  grab.collected = true;
+  if (grab.marker) {
+    grab.marker.remove();
+    grab.marker = undefined;
   }
-  heldToken = entry.value;
+  heldToken = grab.value;
   updateHeldUI();
+  if (heldToken >= 8) {
+    alert("Congratulations! You win!");
+    globalThis.location.reload();
+  }
 }
 
 // Token spawn function
-function spawnCache(i: number, j: number, interactive = false) {
+function spawnToken(i: number, j: number, interactive = false, value = 1) {
   const key = keyFor(i, j);
   const existing = tokens.get(key);
-  if (existing) {
+  if (existing && !existing.collected) {
+    return;
+  }
+  if (existing && existing.collected) {
     return;
   }
   const origin = tiles;
@@ -88,7 +106,7 @@ function spawnCache(i: number, j: number, interactive = false) {
   tokenImage.src = coin;
   tokenDiv.appendChild(tokenImage);
   const tokenValue = document.createElement("span");
-  tokenValue.innerHTML = "1";
+  tokenValue.innerHTML = value.toString();
   tokenDiv.appendChild(tokenValue);
   const tokenIcon = leaflet.divIcon({
     className: "token-icon",
@@ -98,18 +116,44 @@ function spawnCache(i: number, j: number, interactive = false) {
 
   const token = leaflet.marker(spawn, { icon: tokenIcon, interactive });
   token.on("click", () => {
-    const p = player.getLatLng();
-    const playerI = Math.floor((p.lat - origin.lat) / size);
-    const playerJ = Math.floor((p.lng - origin.lng) / size);
-    if (
-      Math.abs(i - playerI) <= pickupRadius &&
-      Math.abs(j - playerJ) <= pickupRadius
-    ) {
-      pickUp(key);
-    }
+    collect(i, j, key);
   });
   tokensLayer.addLayer(token);
-  tokens.set(key, { marker: token, value: 1, collected: false });
+  tokens.set(key, { marker: token, value, collected: false });
+}
+
+function collect(i: number, j: number, key: string) {
+  const origin = tiles;
+  const p = player.getLatLng();
+  const playerI = Math.floor((p.lat - origin.lat) / size);
+  const playerJ = Math.floor((p.lng - origin.lng) / size);
+  if (
+    Math.abs(i - playerI) > pickupRadius || Math.abs(j - playerJ) > pickupRadius
+  ) return;
+  if (heldToken !== null) {
+    craftToken(i, j);
+    return;
+  }
+  pickUp(key);
+}
+
+function craftToken(i: number, j: number) {
+  const key = keyFor(i, j);
+  const existing = tokens.get(key);
+  if (existing && !existing.collected) {
+    if (existing.value === heldToken) {
+      const newValue = heldToken * 2;
+      updateValue(key, newValue);
+      heldToken = null;
+      updateHeldUI();
+      return;
+    }
+    return;
+  }
+  spawnToken(i, j, true, heldToken!);
+  heldToken = null;
+  updateHeldUI();
+  return;
 }
 
 // Draw grid and spawn tokens
@@ -139,7 +183,7 @@ function drawGrid() {
       );
       grid.addLayer(rect);
       if (luck([i, j].toString()) < 0.2) {
-        spawnCache(i, j, isWithinRadius || isPlayerCell);
+        spawnToken(i, j, isWithinRadius || isPlayerCell);
       }
     }
   }

@@ -26,6 +26,6 @@ Key gameplay challenge: Can players collect and craft tokens from nearby locatio
 - [x] Make cells clickable only if within 3-cell radius of player
 - [x] Implement token pickup
 - [x] Show held token on screen
-- [ ] Implement crafting
-- [ ] End game when player crafts target value
+- [x] Implement crafting
+- [x] End game when player crafts target value
 - [ ] Add one cleanup commit
