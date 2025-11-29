@@ -44,4 +44,4 @@ Key gameplay challenge: Can players craft an even higher value token by moving t
 - [x] Add UI buttons to move player one grid step
 - [x] Update player’s position on button click
 - [x] Test movement across large distances
-- [ ] Cleanup commit
+- [x] Cleanup commit

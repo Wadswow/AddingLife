@@ -1,4 +1,4 @@
-// Imports
+//imports
 import leaflet from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./style.css";
@@ -6,12 +6,12 @@ import "./_leafletWorkaround.ts";
 import luck from "./_luck.ts";
 import coin from "./coin.png";
 
-// Create basic UI elements
+//create basic UI elements
 const mapDiv = document.createElement("div");
 mapDiv.id = "map";
 document.body.append(mapDiv);
 
-// Map initialization
+//map initialization
 const nullIsland = leaflet.latLng(0, 0);
 const size = 1e-4;
 const initialCoord = spawnPlayerInRandomTile();
@@ -42,7 +42,7 @@ const tokens = new Map<
 let heldToken: number | null = null;
 const pickupRadius = 3;
 
-// Held-token UI
+//held-token UI
 const heldDiv = document.createElement("div");
 heldDiv.className = "held-token";
 heldDiv.textContent = "Held: —";
@@ -73,7 +73,7 @@ function updateValue(key: string, newValue: number) {
   }
 }
 
-// Token pick-up function/win condition
+//token pick-up function/win condition
 function pickUp(key: string) {
   if (heldToken !== null) return;
   const grab = tokenCall(key);
@@ -85,13 +85,13 @@ function pickUp(key: string) {
   }
   heldToken = grab.value;
   updateHeldUI();
-  if (heldToken >= 8) {
+  if (heldToken >= 128) {
     alert("Congratulations! You win!");
     globalThis.location.reload();
   }
 }
 
-// Token spawn function
+//token spawn function
 function spawnToken(i: number, j: number, interactive = false, value = 1) {
   const key = keyFor(i, j);
   const existing = tokenCall(key);
@@ -102,7 +102,7 @@ function spawnToken(i: number, j: number, interactive = false, value = 1) {
     nullIsland.lng + (j + 0.5) * size,
   );
 
-  // Create token
+  //create token
   const tokenDiv = document.createElement("div");
   tokenDiv.className = "token";
   const tokenImage = document.createElement("img");
@@ -117,7 +117,7 @@ function spawnToken(i: number, j: number, interactive = false, value = 1) {
     iconSize: [32, 32],
   });
 
-  // Add token to map
+  //add token to map
   const token = leaflet.marker(spawn, { icon: tokenIcon, interactive });
   token.on("click", () => {
     collect(i, j, key);
@@ -126,7 +126,7 @@ function spawnToken(i: number, j: number, interactive = false, value = 1) {
   tokens.set(key, { marker: token, value, collected: false });
 }
 
-// Token handling function
+//token handling function
 function collect(i: number, j: number, key: string) {
   const playerI = Math.floor((playerLocation.lat - nullIsland.lat) / size);
   const playerJ = Math.floor((playerLocation.lng - nullIsland.lng) / size);
@@ -160,7 +160,7 @@ function craftToken(i: number, j: number) {
   return;
 }
 
-// Draw grid and spawn tokens
+//draw grid and spawn tokens
 function drawGrid() {
   despawnOffscreenTokens();
   grid.clearLayers();
@@ -208,42 +208,32 @@ function drawGrid() {
   }
 }
 
+//despawn offscreen tokens
 function despawnOffscreenTokens() {
   const bounds = map.getBounds();
   for (const [key, token] of tokens) {
     const parts = key.split(",");
     const i = Number(parts[0]);
     const j = Number(parts[1]);
-    const cellCenter = leaflet.latLng(
+    const center = leaflet.latLng(
       nullIsland.lat + (i + 0.5) * size,
       nullIsland.lng + (j + 0.5) * size,
     );
-
-    // If that cell is off-screen, remove any marker and delete the entry
-    if (!bounds.contains(cellCenter)) {
+    if (!bounds.contains(center)) {
       if (token.marker) {
         tokensLayer.removeLayer(token.marker);
-        try {
-          token.marker.remove();
-        } catch {
-          /* ignore */
-        }
+        token.marker.remove();
         token.marker = undefined;
       }
-      // delete token entry so it can be spawned anew later
       tokens.delete(key);
     }
   }
 }
 
 //random player spawn function
-function spawnPlayerInRandomTile(tileRadius = 899999, center = nullIsland) {
-  const centerI = Math.floor((center.lat - nullIsland.lat) / size);
-  const centerJ = Math.floor((center.lng - nullIsland.lng) / size);
-  const i = centerI + Math.floor(Math.random() * (2 * tileRadius + 1)) -
-    tileRadius;
-  const j = centerJ + Math.floor(Math.random() * (2 * tileRadius + 1)) -
-    tileRadius;
+function spawnPlayerInRandomTile() {
+  const i = Math.floor(Math.random() * (2 * 899998 + 1)) - 899998;
+  const j = Math.floor(Math.random() * (2 * 899998 + 1)) - 899998;
   return leaflet.latLng(
     nullIsland.lat + (i + 0.5) * size,
     nullIsland.lng + (j + 0.5) * size,
