@@ -41,7 +41,7 @@ Key gameplay challenge: Can players craft an even higher value token by moving t
 - [x] Generate cells dynamically based on current map view
 - [x] Keep a memory of cell states using a Map keyed by grid coordinates
 - [x] Allow free map panning
-- [ ] Add UI buttons to move player one grid step
-- [ ] Update player’s position on button click
-- [ ] Test movement across large distances
+- [x] Add UI buttons to move player one grid step
+- [x] Update player’s position on button click
+- [x] Test movement across large distances
 - [ ] Cleanup commit

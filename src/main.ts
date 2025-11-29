@@ -177,16 +177,32 @@ function drawGrid() {
         [nullIsland.lat + i * size, nullIsland.lng + j * size],
         [nullIsland.lat + (i + 1) * size, nullIsland.lng + (j + 1) * size],
       ]);
-      const isPlayerCell = i === playerI && j === playerJ;
-      const isWithinRadius = Math.abs(i - playerI) <= 3 &&
+      const isPlayer = i === playerI && j === playerJ;
+      const radius = Math.abs(i - playerI) <= 3 &&
         Math.abs(j - playerJ) <= 3;
+      const key = keyFor(i, j);
+      const existing = tokenCall(key);
+      if (existing && existing.marker) {
+        const interactiveRange = radius || isPlayer;
+        const interactive = existing.marker.options.interactive;
+        if (interactiveRange !== interactive) {
+          tokensLayer.removeLayer(existing.marker);
+          const newToken = leaflet.marker(existing.marker.getLatLng(), {
+            icon: existing.marker.options.icon!,
+            interactive: interactiveRange,
+          });
+          newToken.on("click", () => collect(i, j, key));
+          tokensLayer.addLayer(newToken);
+          existing.marker = newToken;
+        }
+      }
       const rect = leaflet.rectangle(
         bounds,
-        isPlayerCell || isWithinRadius ? { color: "#f00" } : { color: "#666" },
+        isPlayer || radius ? { color: "#f00" } : { color: "#666" },
       );
       grid.addLayer(rect);
       if (luck([i, j].toString()) < 0.2) {
-        spawnToken(i, j, isWithinRadius || isPlayerCell);
+        spawnToken(i, j, radius || isPlayer);
       }
     }
   }
@@ -234,10 +250,52 @@ function spawnPlayerInRandomTile(tileRadius = 899999, center = nullIsland) {
   );
 }
 
+//movement buttons
+const moveButtons = document.createElement("div");
+moveButtons.className = "move-buttons";
+document.body.appendChild(moveButtons);
+
+const upButton = document.createElement("button");
+upButton.innerHTML = "↑";
+upButton.className = "move-button up-button";
+upButton.onclick = () => {
+  const current = player.getLatLng();
+  player.setLatLng(leaflet.latLng(current.lat + size, current.lng));
+};
+moveButtons.appendChild(upButton);
+
+const downButton = document.createElement("button");
+downButton.innerHTML = "↓";
+downButton.className = "move-button down-button";
+downButton.onclick = () => {
+  const current = player.getLatLng();
+  player.setLatLng(leaflet.latLng(current.lat - size, current.lng));
+};
+moveButtons.appendChild(downButton);
+
+const leftButton = document.createElement("button");
+leftButton.innerHTML = "←";
+leftButton.className = "move-button left-button";
+leftButton.onclick = () => {
+  const current = player.getLatLng();
+  player.setLatLng(leaflet.latLng(current.lat, current.lng - size));
+};
+moveButtons.appendChild(leftButton);
+
+const rightButton = document.createElement("button");
+rightButton.innerHTML = "→";
+rightButton.className = "move-button right-button";
+rightButton.onclick = () => {
+  const current = player.getLatLng();
+  player.setLatLng(leaflet.latLng(current.lat, current.lng + size));
+};
+moveButtons.appendChild(rightButton);
+
 //initialize and handle map movements
 map.on("moveend zoomend", drawGrid);
 player.on("move", () => {
   playerLocation = player.getLatLng();
+  map.panTo(playerLocation, { animate: true });
   drawGrid();
 });
 drawGrid();
