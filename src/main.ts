@@ -11,10 +11,10 @@ const mapDiv = document.createElement("div");
 mapDiv.id = "map";
 document.body.append(mapDiv);
 
-// Initialize map
-const initialCoord = leaflet.latLng(36.997936938057016, -122.05703507501151);
-const tiles = leaflet.latLng(36.997886938057016, -122.05708507501151);
+// Map initialization
+const nullIsland = leaflet.latLng(0, 0);
 const size = 1e-4;
+const initialCoord = spawnPlayerInRandomTile();
 const map = leaflet.map("map").setView(initialCoord, 19);
 const grid = leaflet.layerGroup().addTo(map);
 
@@ -27,7 +27,7 @@ leaflet.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
 //placeholder character
 const player = leaflet.marker(initialCoord);
 player.addTo(map);
-const playerLocation = player.getLatLng();
+let playerLocation = player.getLatLng();
 
 //initialize token storage
 const tokensLayer = leaflet.layerGroup().addTo(map);
@@ -98,8 +98,8 @@ function spawnToken(i: number, j: number, interactive = false, value = 1) {
   if (existing && !existing.collected) return;
   if (existing && existing.collected) return;
   const spawn = leaflet.latLng(
-    tiles.lat + (i + 0.5) * size,
-    tiles.lng + (j + 0.5) * size,
+    nullIsland.lat + (i + 0.5) * size,
+    nullIsland.lng + (j + 0.5) * size,
   );
 
   // Create token
@@ -128,8 +128,8 @@ function spawnToken(i: number, j: number, interactive = false, value = 1) {
 
 // Token handling function
 function collect(i: number, j: number, key: string) {
-  const playerI = Math.floor((playerLocation.lat - tiles.lat) / size);
-  const playerJ = Math.floor((playerLocation.lng - tiles.lng) / size);
+  const playerI = Math.floor((playerLocation.lat - nullIsland.lat) / size);
+  const playerJ = Math.floor((playerLocation.lng - nullIsland.lng) / size);
   if (
     Math.abs(i - playerI) > pickupRadius || Math.abs(j - playerJ) > pickupRadius
   ) return;
@@ -162,19 +162,20 @@ function craftToken(i: number, j: number) {
 
 // Draw grid and spawn tokens
 function drawGrid() {
+  despawnOffscreenTokens();
   grid.clearLayers();
   const bounds = map.getBounds();
-  const playerI = Math.floor((playerLocation.lat - tiles.lat) / size);
-  const playerJ = Math.floor((playerLocation.lng - tiles.lng) / size);
-  const minLatitude = Math.floor((bounds.getSouth() - tiles.lat) / size);
-  const maxLatitude = Math.floor((bounds.getNorth() - tiles.lat) / size);
-  const minLongitude = Math.floor((bounds.getWest() - tiles.lng) / size);
-  const maxLongitude = Math.floor((bounds.getEast() - tiles.lng) / size);
+  const playerI = Math.floor((playerLocation.lat - nullIsland.lat) / size);
+  const playerJ = Math.floor((playerLocation.lng - nullIsland.lng) / size);
+  const minLatitude = Math.floor((bounds.getSouth() - nullIsland.lat) / size);
+  const maxLatitude = Math.floor((bounds.getNorth() - nullIsland.lat) / size);
+  const minLongitude = Math.floor((bounds.getWest() - nullIsland.lng) / size);
+  const maxLongitude = Math.floor((bounds.getEast() - nullIsland.lng) / size);
   for (let i = minLatitude; i <= maxLatitude; i++) {
     for (let j = minLongitude; j <= maxLongitude; j++) {
       const bounds = leaflet.latLngBounds([
-        [tiles.lat + i * size, tiles.lng + j * size],
-        [tiles.lat + (i + 1) * size, tiles.lng + (j + 1) * size],
+        [nullIsland.lat + i * size, nullIsland.lng + j * size],
+        [nullIsland.lat + (i + 1) * size, nullIsland.lng + (j + 1) * size],
       ]);
       const isPlayerCell = i === playerI && j === playerJ;
       const isWithinRadius = Math.abs(i - playerI) <= 3 &&
@@ -191,7 +192,52 @@ function drawGrid() {
   }
 }
 
+function despawnOffscreenTokens() {
+  const bounds = map.getBounds();
+  for (const [key, token] of tokens) {
+    const parts = key.split(",");
+    const i = Number(parts[0]);
+    const j = Number(parts[1]);
+    const cellCenter = leaflet.latLng(
+      nullIsland.lat + (i + 0.5) * size,
+      nullIsland.lng + (j + 0.5) * size,
+    );
+
+    // If that cell is off-screen, remove any marker and delete the entry
+    if (!bounds.contains(cellCenter)) {
+      if (token.marker) {
+        tokensLayer.removeLayer(token.marker);
+        try {
+          token.marker.remove();
+        } catch {
+          /* ignore */
+        }
+        token.marker = undefined;
+      }
+      // delete token entry so it can be spawned anew later
+      tokens.delete(key);
+    }
+  }
+}
+
+//random player spawn function
+function spawnPlayerInRandomTile(tileRadius = 899999, center = nullIsland) {
+  const centerI = Math.floor((center.lat - nullIsland.lat) / size);
+  const centerJ = Math.floor((center.lng - nullIsland.lng) / size);
+  const i = centerI + Math.floor(Math.random() * (2 * tileRadius + 1)) -
+    tileRadius;
+  const j = centerJ + Math.floor(Math.random() * (2 * tileRadius + 1)) -
+    tileRadius;
+  return leaflet.latLng(
+    nullIsland.lat + (i + 0.5) * size,
+    nullIsland.lng + (j + 0.5) * size,
+  );
+}
+
 //initialize and handle map movements
 map.on("moveend zoomend", drawGrid);
-player.on("move", drawGrid);
+player.on("move", () => {
+  playerLocation = player.getLatLng();
+  drawGrid();
+});
 drawGrid();
