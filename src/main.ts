@@ -53,17 +53,12 @@ function keyFor(i: number, j: number) {
   return `${i},${j}`;
 }
 
-function tokenCall(key: string) {
-  const token = tokens.get(key);
-  return token;
-}
-
 function updateHeldUI() {
   heldDiv.textContent = `Held: ${heldToken ?? "—"}`;
 }
 
 function updateValue(key: string, newValue: number) {
-  const token = tokenCall(key);
+  const token = tokens.get(key);
   if (!token || token.collected) return;
   token.value = newValue;
   if (token.marker) {
@@ -76,7 +71,7 @@ function updateValue(key: string, newValue: number) {
 //token pick-up function/win condition
 function pickUp(key: string) {
   if (heldToken !== null) return;
-  const grab = tokenCall(key);
+  const grab = tokens.get(key);
   if (!grab || grab.collected) return;
   grab.collected = true;
   if (grab.marker) {
@@ -94,7 +89,7 @@ function pickUp(key: string) {
 //token spawn function
 function spawnToken(i: number, j: number, interactive = false, value = 1) {
   const key = keyFor(i, j);
-  const existing = tokenCall(key);
+  const existing = tokens.get(key);
   const spawn = leaflet.latLng(
     nullIsland.lat + (i + 0.5) * size,
     nullIsland.lng + (j + 0.5) * size,
@@ -147,7 +142,7 @@ function collect(i: number, j: number, key: string) {
 //token crafting function
 function craftToken(i: number, j: number) {
   const key = keyFor(i, j);
-  const existing = tokenCall(key);
+  const existing = tokens.get(key);
   if (existing && !existing.collected) {
     if (existing.value === heldToken) {
       const newValue = heldToken * 2;
@@ -185,7 +180,7 @@ function drawGrid() {
       const radius = Math.abs(i - playerI) <= 3 &&
         Math.abs(j - playerJ) <= 3;
       const key = keyFor(i, j);
-      const existing = tokenCall(key);
+      const existing = tokens.get(key);
       if (existing && existing.marker) {
         const interactiveRange = radius || isPlayer;
         const interactive = existing.marker.options.interactive;
@@ -244,45 +239,34 @@ function spawnPlayerInRandomTile() {
 }
 
 //movement buttons
+function createMoveButton(
+  direction: string,
+  symbol: string,
+  delta: [number, number],
+) {
+  const button = document.createElement("button");
+  button.innerHTML = symbol;
+  button.className = `move-button ${direction}-button`;
+  button.onclick = () => {
+    const current = player.getLatLng();
+    player.setLatLng(leaflet.latLng(
+      current.lat + delta[0] * size,
+      current.lng + delta[1] * size,
+    ));
+  };
+  return button;
+}
+
 const moveButtons = document.createElement("div");
 moveButtons.className = "move-buttons";
 document.body.appendChild(moveButtons);
 
-const upButton = document.createElement("button");
-upButton.innerHTML = "↑";
-upButton.className = "move-button up-button";
-upButton.onclick = () => {
-  const current = player.getLatLng();
-  player.setLatLng(leaflet.latLng(current.lat + size, current.lng));
-};
-moveButtons.appendChild(upButton);
-
-const downButton = document.createElement("button");
-downButton.innerHTML = "↓";
-downButton.className = "move-button down-button";
-downButton.onclick = () => {
-  const current = player.getLatLng();
-  player.setLatLng(leaflet.latLng(current.lat - size, current.lng));
-};
-moveButtons.appendChild(downButton);
-
-const leftButton = document.createElement("button");
-leftButton.innerHTML = "←";
-leftButton.className = "move-button left-button";
-leftButton.onclick = () => {
-  const current = player.getLatLng();
-  player.setLatLng(leaflet.latLng(current.lat, current.lng - size));
-};
-moveButtons.appendChild(leftButton);
-
-const rightButton = document.createElement("button");
-rightButton.innerHTML = "→";
-rightButton.className = "move-button right-button";
-rightButton.onclick = () => {
-  const current = player.getLatLng();
-  player.setLatLng(leaflet.latLng(current.lat, current.lng + size));
-};
-moveButtons.appendChild(rightButton);
+moveButtons.append(
+  createMoveButton("up", "↑", [1, 0]),
+  createMoveButton("left", "←", [0, -1]),
+  createMoveButton("down", "↓", [-1, 0]),
+  createMoveButton("right", "→", [0, 1]),
+);
 
 //initialize and handle map movements
 map.on("moveend zoomend", drawGrid);
