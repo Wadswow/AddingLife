@@ -95,12 +95,16 @@ function pickUp(key: string) {
 function spawnToken(i: number, j: number, interactive = false, value = 1) {
   const key = keyFor(i, j);
   const existing = tokenCall(key);
-  if (existing && !existing.collected) return;
-  if (existing && existing.collected) return;
   const spawn = leaflet.latLng(
     nullIsland.lat + (i + 0.5) * size,
     nullIsland.lng + (j + 0.5) * size,
   );
+  if (existing) {
+    if (existing.collected || existing.marker) {
+      return;
+    }
+    value = existing.value;
+  }
 
   //create token
   const tokenDiv = document.createElement("div");
@@ -225,7 +229,6 @@ function despawnOffscreenTokens() {
         token.marker.remove();
         token.marker = undefined;
       }
-      tokens.delete(key);
     }
   }
 }

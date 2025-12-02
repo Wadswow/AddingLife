@@ -45,3 +45,16 @@ Key gameplay challenge: Can players craft an even higher value token by moving t
 - [x] Update player’s position on button click
 - [x] Test movement across large distances
 - [x] Cleanup commit
+
+### D3.c: Object Persistence
+
+Key technical challenge: Can your software accurately remember the state of map cells even when they scroll off the screen?
+Key gameplay challenge: Can you fix a gameplay bug where players can farm tokens by moving into and out of a region repeatedly?
+
+#### C Steps
+
+- [x] Refactor token storage to persist across all coordinates
+- [x] Use `Map<string, CellState>` to store every visited cell's token value and collection state
+- [x] Prevent `spawnToken` from regenerating tokens in already-visited cells
+- [x] Ensure crafting updates the persistent state
+- [ ] Add cleanup commit
