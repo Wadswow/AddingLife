@@ -68,8 +68,8 @@ Key gameplay challenge: Can the user test the game with multiple gameplay sessio
 
 - [x] Request real-world location using `navigator.geolocation.watchPosition()`
 - [x] Update player marker based on GPS data
-- [ ] Save game state to `localStorage` on change
-- [ ] Load game state from `localStorage` on startup
+- [x] Save game state to `localStorage` on change
+- [x] Load game state from `localStorage` on startup
 - [ ] Allow player to switch using UI runtime control
 - [ ] Allow player to start a new game
 - [ ] Add cleanup commit

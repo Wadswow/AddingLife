@@ -17,11 +17,11 @@ const size = 1e-4;
 const initialCoord = spawnPlayerInRandomTile();
 const map = leaflet.map("map").setView(initialCoord, 19);
 const grid = leaflet.layerGroup().addTo(map);
+const STORAGE_KEY = "adding-life-tokens";
+const HELD_KEY = "adding-life-held";
 
 leaflet.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19,
-  attribution:
-    '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
 }).addTo(map);
 
 //placeholder character
@@ -29,6 +29,7 @@ const player = leaflet.marker(initialCoord);
 player.addTo(map);
 let playerLocation = player.getLatLng();
 
+//geolocation handling
 let geoWatchId: number | null = null;
 const PLAYER_STORAGE = "adding-life-player";
 function savePlayerLocation(latlng: leaflet.LatLng) {
@@ -123,6 +124,28 @@ function keyFor(i: number, j: number) {
   return `${i},${j}`;
 }
 
+//held token persistence functions
+function saveHeldToken() {
+  localStorage.setItem(HELD_KEY, JSON.stringify(heldToken));
+}
+
+function loadHeldToken(): number | null {
+  try {
+    const raw = localStorage.getItem(HELD_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as number | null;
+    return v ?? null;
+  } catch {
+    return null;
+  }
+}
+
+const savedHeld = loadHeldToken();
+if (savedHeld !== null) {
+  heldToken = savedHeld;
+  updateHeldUI();
+}
+
 function updateHeldUI() {
   heldDiv.textContent = `Held: ${heldToken ?? "—"}`;
 }
@@ -150,11 +173,38 @@ function pickUp(key: string) {
   }
   heldToken = grab.value;
   updateHeldUI();
+  saveHeldToken();
   if (heldToken >= 128) {
     alert("Congratulations! You win!");
     globalThis.location.reload();
   }
 }
+
+//token persistence functions
+function saveTokens() {
+  const payload: Array<{ key: string; value: number; collected?: boolean }> =
+    [];
+  for (const [key, token] of tokens) {
+    payload.push({ key, value: token.value, collected: !!token.collected });
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+}
+
+function loadTokens() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return;
+  const payload: Array<{ key: string; value: number; collected?: boolean }> =
+    JSON.parse(raw);
+  for (const entry of payload) {
+    tokens.set(entry.key, {
+      value: entry.value,
+      collected: !!entry.collected,
+      marker: undefined,
+    });
+  }
+}
+
+loadTokens();
 
 //token spawn function
 function spawnToken(i: number, j: number, interactive = false, value = 1) {
@@ -193,6 +243,7 @@ function spawnToken(i: number, j: number, interactive = false, value = 1) {
   });
   tokensLayer.addLayer(token);
   tokens.set(key, { marker: token, value, collected: false });
+  saveTokens();
 }
 
 //token handling function
@@ -204,6 +255,7 @@ function collect(i: number, j: number, key: string) {
   ) return;
   if (heldToken !== null) {
     craftToken(i, j);
+    saveTokens();
     return;
   }
   pickUp(key);
@@ -219,6 +271,7 @@ function craftToken(i: number, j: number) {
       updateValue(key, newValue);
       heldToken = null;
       updateHeldUI();
+      saveHeldToken();
       return;
     }
     return;
@@ -226,6 +279,7 @@ function craftToken(i: number, j: number) {
   spawnToken(i, j, true, heldToken!);
   heldToken = null;
   updateHeldUI();
+  saveHeldToken();
   return;
 }
 
