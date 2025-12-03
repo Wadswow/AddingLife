@@ -57,4 +57,19 @@ Key gameplay challenge: Can you fix a gameplay bug where players can farm tokens
 - [x] Use `Map<string, CellState>` to store every visited cell's token value and collection state
 - [x] Prevent `spawnToken` from regenerating tokens in already-visited cells
 - [x] Ensure crafting updates the persistent state
+- [x] Add cleanup commit
+
+### D3.d: Gameplay Across Real-World Space and Time
+
+Key technical challenges: Can your software remember game state even when the page is closed? Is the player character’s in-game movement controlled by the real-world geolocation of their device?
+Key gameplay challenge: Can the user test the game with multiple gameplay sessions, some involving _real-world_ movement and some involving _simulated_ movement?
+
+#### D Steps
+
+- [x] Request real-world location using `navigator.geolocation.watchPosition()`
+- [x] Update player marker based on GPS data
+- [ ] Save game state to `localStorage` on change
+- [ ] Load game state from `localStorage` on startup
+- [ ] Allow player to switch using UI runtime control
+- [ ] Allow player to start a new game
 - [ ] Add cleanup commit

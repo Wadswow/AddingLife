@@ -29,6 +29,76 @@ const player = leaflet.marker(initialCoord);
 player.addTo(map);
 let playerLocation = player.getLatLng();
 
+let geoWatchId: number | null = null;
+const PLAYER_STORAGE = "adding-life-player";
+function savePlayerLocation(latlng: leaflet.LatLng) {
+  try {
+    localStorage.setItem(
+      PLAYER_STORAGE,
+      JSON.stringify({ lat: latlng.lat, lng: latlng.lng }),
+    );
+  } catch {
+    /* ignore storage errors */
+  }
+}
+
+function loadPlayerLocation(): leaflet.LatLng | null {
+  try {
+    const raw = localStorage.getItem(PLAYER_STORAGE);
+    if (!raw) return null;
+    const p = JSON.parse(raw) as { lat: number; lng: number } | undefined;
+    if (!p) return null;
+    return leaflet.latLng(p.lat, p.lng);
+  } catch {
+    return null;
+  }
+}
+
+function applyGeoPosition(lat: number, lng: number, shouldCenter = true) {
+  const i = Math.floor((lat - nullIsland.lat) / size);
+  const j = Math.floor((lng - nullIsland.lng) / size);
+  const center = leaflet.latLng(
+    nullIsland.lat + (i + 0.5) * size,
+    nullIsland.lng + (j + 0.5) * size,
+  );
+  const newLatLng = center;
+  player.setLatLng(newLatLng);
+  playerLocation = newLatLng;
+  savePlayerLocation(newLatLng);
+  if (shouldCenter) map.panTo(newLatLng, { animate: true });
+}
+
+function initGeolocation() {
+  if (!("geolocation" in navigator)) return;
+  try {
+    geoWatchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        applyGeoPosition(latitude, longitude);
+      },
+      (err) => {
+        console.warn("Geolocation error:", err);
+        if (geoWatchId !== null) {
+          navigator.geolocation.clearWatch(geoWatchId);
+          geoWatchId = null;
+        }
+      },
+      { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 },
+    );
+  } catch (e) {
+    console.warn("Failed to start geolocation:", e);
+  }
+}
+
+const savedPosition = loadPlayerLocation();
+if (savedPosition) {
+  player.setLatLng(savedPosition);
+  playerLocation = savedPosition;
+  map.setView(savedPosition, map.getZoom());
+}
+
+initGeolocation();
+
 //initialize token storage
 const tokensLayer = leaflet.layerGroup().addTo(map);
 const tokens = new Map<
@@ -230,8 +300,8 @@ function despawnOffscreenTokens() {
 
 //random player spawn function
 function spawnPlayerInRandomTile() {
-  const i = Math.floor(Math.random() * (2 * 899998 + 1)) - 899998;
-  const j = Math.floor(Math.random() * (2 * 899998 + 1)) - 899998;
+  const i = Math.floor(Math.random() * (2 * 899990 + 1)) - 899990;
+  const j = Math.floor(Math.random() * (2 * 899990 + 1)) - 899990;
   return leaflet.latLng(
     nullIsland.lat + (i + 0.5) * size,
     nullIsland.lng + (j + 0.5) * size,
