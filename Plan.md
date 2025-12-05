@@ -72,4 +72,4 @@ Key gameplay challenge: Can the user test the game with multiple gameplay sessio
 - [x] Load game state from `localStorage` on startup
 - [x] Allow player to switch using UI runtime control
 - [x] Allow player to start a new game
-- [ ] Add cleanup commit
+- [x] Add cleanup commit

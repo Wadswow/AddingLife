@@ -1,4 +1,4 @@
-//imports
+// === Imports ===
 import leaflet from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./style.css";
@@ -6,33 +6,84 @@ import "./_leafletWorkaround.ts";
 import luck from "./_luck.ts";
 import coin from "./coin.png";
 
-//create basic UI elements
+// === DOM and Map Initialization ===
 const mapDiv = document.createElement("div");
 mapDiv.id = "map";
 document.body.append(mapDiv);
 
-//map initialization
-const nullIsland = leaflet.latLng(0, 0);
-const size = 1e-4;
-const initialCoord = spawnPlayerInRandomTile();
-const map = leaflet.map("map").setView(initialCoord, 19);
-const grid = leaflet.layerGroup().addTo(map);
+//global constants and variables
+const NULL_ISLAND = leaflet.latLng(0, 0);
+const SIZE = 1e-4;
+const INITIAL_COORD = spawnPlayerInRandomTile();
+const MAP = leaflet.map("map").setView(INITIAL_COORD, 19);
+const GRID = leaflet.layerGroup().addTo(MAP);
+const PICK_UP_RADIUS = 3;
 const STORAGE_KEY = "adding-life-tokens";
 const HELD_KEY = "adding-life-held";
+const PLAYER_STORAGE = "adding-life-player";
+let heldToken: number | null = null;
+let geoWatchId: number | null = null;
 let useGeolocation = true;
 
 leaflet.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19,
-}).addTo(map);
+}).addTo(MAP);
 
-//placeholder character
-const player = leaflet.marker(initialCoord);
-player.addTo(map);
+//random player spawn function
+function spawnPlayerInRandomTile() {
+  const i = Math.floor(Math.random() * (2 * 899990 + 1)) - 899990;
+  const j = Math.floor(Math.random() * (2 * 899990 + 1)) - 899990;
+  return leaflet.latLng(
+    NULL_ISLAND.lat + (i + 0.5) * SIZE,
+    NULL_ISLAND.lng + (j + 0.5) * SIZE,
+  );
+}
+
+// === Helper Functions ===
+function keyFor(i: number, j: number) {
+  return `${i},${j}`;
+}
+
+function updateVisibility() {
+  moveButtons.style.display = useGeolocation ? "none" : "";
+}
+
+function updateHeldUI() {
+  heldDiv.textContent = `Held: ${heldToken ?? "—"}`;
+}
+
+function releaseHeldToken() {
+  heldToken = null;
+  updateHeldUI();
+  saveHeldToken();
+}
+
+function setHeldToken(value: number) {
+  heldToken = value;
+  updateHeldUI();
+  saveHeldToken();
+}
+
+function coordsToTile(lat: number, lng: number): [number, number] {
+  return [
+    Math.floor((lat - NULL_ISLAND.lat) / SIZE),
+    Math.floor((lng - NULL_ISLAND.lng) / SIZE),
+  ];
+}
+
+function tileToCenter(i: number, j: number): leaflet.LatLng {
+  return leaflet.latLng(
+    NULL_ISLAND.lat + (i + 0.5) * SIZE,
+    NULL_ISLAND.lng + (j + 0.5) * SIZE,
+  );
+}
+
+// === Player Initialization And Geolocation Handling ===
+const player = leaflet.marker(INITIAL_COORD);
+player.addTo(MAP);
 let playerLocation = player.getLatLng();
 
-//geolocation handling
-let geoWatchId: number | null = null;
-const PLAYER_STORAGE = "adding-life-player";
+//geolocation position saving/loading functions
 function savePlayerLocation(latlng: leaflet.LatLng) {
   try {
     localStorage.setItem(
@@ -56,20 +107,18 @@ function loadPlayerLocation(): leaflet.LatLng | null {
   }
 }
 
+//function for moving player based on geolocation
 function applyGeoPosition(lat: number, lng: number, shouldCenter = true) {
-  const i = Math.floor((lat - nullIsland.lat) / size);
-  const j = Math.floor((lng - nullIsland.lng) / size);
-  const center = leaflet.latLng(
-    nullIsland.lat + (i + 0.5) * size,
-    nullIsland.lng + (j + 0.5) * size,
-  );
+  const [i, j] = coordsToTile(lat, lng);
+  const center = tileToCenter(i, j);
   const newLatLng = center;
   player.setLatLng(newLatLng);
   playerLocation = newLatLng;
   savePlayerLocation(newLatLng);
-  if (shouldCenter) map.panTo(newLatLng, { animate: true });
+  if (shouldCenter) MAP.panTo(newLatLng, { animate: true });
 }
 
+//geolocation initialization and handling functions
 function initGeolocation() {
   if (!("geolocation" in navigator)) {
     useGeolocation = false;
@@ -111,13 +160,15 @@ const savedPosition = loadPlayerLocation();
 if (savedPosition) {
   player.setLatLng(savedPosition);
   playerLocation = savedPosition;
-  map.setView(savedPosition, map.getZoom());
+  MAP.setView(savedPosition, MAP.getZoom());
 }
 
 initGeolocation();
 
+// === Token Management ===
+
 //initialize token storage
-const tokensLayer = leaflet.layerGroup().addTo(map);
+const tokensLayer = leaflet.layerGroup().addTo(MAP);
 const tokens = new Map<
   string,
   {
@@ -126,23 +177,12 @@ const tokens = new Map<
     collected?: boolean | undefined;
   }
 >();
-let heldToken: number | null = null;
-const pickupRadius = 3;
 
 //held-token UI
 const heldDiv = document.createElement("div");
 heldDiv.className = "held-token";
 heldDiv.textContent = "Held: —";
 document.body.appendChild(heldDiv);
-
-//Helper Functions
-function keyFor(i: number, j: number) {
-  return `${i},${j}`;
-}
-
-function updateVisibility() {
-  moveButtons.style.display = useGeolocation ? "none" : "";
-}
 
 //held token persistence functions
 function saveHeldToken() {
@@ -166,10 +206,6 @@ if (savedHeld !== null) {
   updateHeldUI();
 }
 
-function updateHeldUI() {
-  heldDiv.textContent = `Held: ${heldToken ?? "—"}`;
-}
-
 function updateValue(key: string, newValue: number) {
   const token = tokens.get(key);
   if (!token || token.collected) return;
@@ -191,10 +227,8 @@ function pickUp(key: string) {
     grab.marker.remove();
     grab.marker = undefined;
   }
-  heldToken = grab.value;
-  updateHeldUI();
-  saveHeldToken();
-  if (heldToken >= 256) {
+  setHeldToken(grab.value);
+  if (heldToken! >= 256) {
     alert("Congratulations! You win!");
   }
 }
@@ -229,10 +263,7 @@ loadTokens();
 function spawnToken(i: number, j: number, interactive = false, value = 1) {
   const key = keyFor(i, j);
   const existing = tokens.get(key);
-  const spawn = leaflet.latLng(
-    nullIsland.lat + (i + 0.5) * size,
-    nullIsland.lng + (j + 0.5) * size,
-  );
+  const spawn = tileToCenter(i, j);
   if (existing) {
     if (existing.collected || existing.marker) {
       return;
@@ -267,17 +298,20 @@ function spawnToken(i: number, j: number, interactive = false, value = 1) {
 
 //token handling function
 function collect(i: number, j: number, key: string) {
-  const playerI = Math.floor((playerLocation.lat - nullIsland.lat) / size);
-  const playerJ = Math.floor((playerLocation.lng - nullIsland.lng) / size);
+  const [playerI, playerJ] = coordsToTile(
+    playerLocation.lat,
+    playerLocation.lng,
+  );
   if (
-    Math.abs(i - playerI) > pickupRadius || Math.abs(j - playerJ) > pickupRadius
+    Math.abs(i - playerI) > PICK_UP_RADIUS ||
+    Math.abs(j - playerJ) > PICK_UP_RADIUS
   ) return;
-  if (heldToken !== null) {
-    craftToken(i, j);
-    saveTokens();
+  if (heldToken === null) {
+    pickUp(key);
     return;
   }
-  pickUp(key);
+  craftToken(i, j);
+  saveTokens();
 }
 
 //token crafting function
@@ -288,36 +322,54 @@ function craftToken(i: number, j: number) {
     if (existing.value === heldToken) {
       const newValue = heldToken * 2;
       updateValue(key, newValue);
-      heldToken = null;
-      updateHeldUI();
-      saveHeldToken();
+      releaseHeldToken();
       return;
     }
     return;
   }
   spawnToken(i, j, true, heldToken!);
-  heldToken = null;
-  updateHeldUI();
-  saveHeldToken();
+  releaseHeldToken();
   return;
 }
+
+//despawn offscreen tokens
+function despawnOffscreenTokens() {
+  const bounds = MAP.getBounds();
+  for (const [key, token] of tokens) {
+    const parts = key.split(",");
+    const i = Number(parts[0]);
+    const j = Number(parts[1]);
+    const center = tileToCenter(i, j);
+    if (!bounds.contains(center)) {
+      if (token.marker) {
+        tokensLayer.removeLayer(token.marker);
+        token.marker.remove();
+        token.marker = undefined;
+      }
+    }
+  }
+}
+
+// === Grid Drawing and Tile Logic ===
 
 //draw grid and spawn tokens
 function drawGrid() {
   despawnOffscreenTokens();
-  grid.clearLayers();
-  const bounds = map.getBounds();
-  const playerI = Math.floor((playerLocation.lat - nullIsland.lat) / size);
-  const playerJ = Math.floor((playerLocation.lng - nullIsland.lng) / size);
-  const minLatitude = Math.floor((bounds.getSouth() - nullIsland.lat) / size);
-  const maxLatitude = Math.floor((bounds.getNorth() - nullIsland.lat) / size);
-  const minLongitude = Math.floor((bounds.getWest() - nullIsland.lng) / size);
-  const maxLongitude = Math.floor((bounds.getEast() - nullIsland.lng) / size);
+  GRID.clearLayers();
+  const bounds = MAP.getBounds();
+  const [playerI, playerJ] = coordsToTile(
+    playerLocation.lat,
+    playerLocation.lng,
+  );
+  const minLatitude = Math.floor((bounds.getSouth() - NULL_ISLAND.lat) / SIZE);
+  const maxLatitude = Math.floor((bounds.getNorth() - NULL_ISLAND.lat) / SIZE);
+  const minLongitude = Math.floor((bounds.getWest() - NULL_ISLAND.lng) / SIZE);
+  const maxLongitude = Math.floor((bounds.getEast() - NULL_ISLAND.lng) / SIZE);
   for (let i = minLatitude; i <= maxLatitude; i++) {
     for (let j = minLongitude; j <= maxLongitude; j++) {
       const bounds = leaflet.latLngBounds([
-        [nullIsland.lat + i * size, nullIsland.lng + j * size],
-        [nullIsland.lat + (i + 1) * size, nullIsland.lng + (j + 1) * size],
+        [NULL_ISLAND.lat + i * SIZE, NULL_ISLAND.lng + j * SIZE],
+        [NULL_ISLAND.lat + (i + 1) * SIZE, NULL_ISLAND.lng + (j + 1) * SIZE],
       ]);
       const isPlayer = i === playerI && j === playerJ;
       const radius = Math.abs(i - playerI) <= 3 &&
@@ -342,7 +394,7 @@ function drawGrid() {
         bounds,
         isPlayer || radius ? { color: "#f00" } : { color: "#666" },
       );
-      grid.addLayer(rect);
+      GRID.addLayer(rect);
       if (luck([i, j].toString()) < 0.2) {
         spawnToken(i, j, radius || isPlayer);
       }
@@ -350,38 +402,9 @@ function drawGrid() {
   }
 }
 
-//despawn offscreen tokens
-function despawnOffscreenTokens() {
-  const bounds = map.getBounds();
-  for (const [key, token] of tokens) {
-    const parts = key.split(",");
-    const i = Number(parts[0]);
-    const j = Number(parts[1]);
-    const center = leaflet.latLng(
-      nullIsland.lat + (i + 0.5) * size,
-      nullIsland.lng + (j + 0.5) * size,
-    );
-    if (!bounds.contains(center)) {
-      if (token.marker) {
-        tokensLayer.removeLayer(token.marker);
-        token.marker.remove();
-        token.marker = undefined;
-      }
-    }
-  }
-}
+// === Input And UI Elements ===
 
-//random player spawn function
-function spawnPlayerInRandomTile() {
-  const i = Math.floor(Math.random() * (2 * 899990 + 1)) - 899990;
-  const j = Math.floor(Math.random() * (2 * 899990 + 1)) - 899990;
-  return leaflet.latLng(
-    nullIsland.lat + (i + 0.5) * size,
-    nullIsland.lng + (j + 0.5) * size,
-  );
-}
-
-//movement buttons
+//movement buttons and functionality
 function createMoveButton(
   direction: string,
   symbol: string,
@@ -394,8 +417,8 @@ function createMoveButton(
     if (useGeolocation) return;
     const current = player.getLatLng();
     player.setLatLng(leaflet.latLng(
-      current.lat + delta[0] * size,
-      current.lng + delta[1] * size,
+      current.lat + delta[0] * SIZE,
+      current.lng + delta[1] * SIZE,
     ));
   };
   return button;
@@ -412,6 +435,7 @@ moveButtons.append(
   createMoveButton("right", "→", [0, 1]),
 );
 
+//new game functionality
 function newGame() {
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(HELD_KEY);
@@ -423,6 +447,7 @@ function newGame() {
   globalThis.location.reload();
 }
 
+//new game button
 const newGameButton = document.createElement("button");
 newGameButton.className = "new-game-button";
 newGameButton.textContent = "New Game";
@@ -433,11 +458,14 @@ newGameButton.onclick = () => {
 };
 document.body.appendChild(newGameButton);
 
+//geolocation toggle button
 const toggleButton = document.createElement("button");
 toggleButton.className = "toggle-move-button";
 toggleButton.textContent = useGeolocation
   ? "Use Movement Buttons"
   : "Use Geolocation";
+
+//toggle button functionality
 toggleButton.onclick = () => {
   useGeolocation = !useGeolocation;
   if (useGeolocation) {
@@ -452,11 +480,11 @@ toggleButton.onclick = () => {
 
 document.body.appendChild(toggleButton);
 
-//initialize and handle map movements
-map.on("moveend zoomend", drawGrid);
+// === Game Initialization ===
+MAP.on("moveend zoomend", drawGrid);
 player.on("move", () => {
   playerLocation = player.getLatLng();
-  map.panTo(playerLocation, { animate: true });
+  MAP.panTo(playerLocation, { animate: true });
   drawGrid();
 });
 drawGrid();
