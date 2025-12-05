@@ -80,3 +80,31 @@
 .right-button {
   grid-area: right;
 }
+
+.new-game-button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: #023770;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 18px;
+  z-index: 1000;
+}
+
+.toggle-move-button {
+  position: absolute;
+  top: 65px;
+  right: 12px;
+  background: #023770;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 18px;
+  z-index: 1000;
+}

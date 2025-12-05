@@ -70,6 +70,6 @@ Key gameplay challenge: Can the user test the game with multiple gameplay sessio
 - [x] Update player marker based on GPS data
 - [x] Save game state to `localStorage` on change
 - [x] Load game state from `localStorage` on startup
-- [ ] Allow player to switch using UI runtime control
-- [ ] Allow player to start a new game
+- [x] Allow player to switch using UI runtime control
+- [x] Allow player to start a new game
 - [ ] Add cleanup commit

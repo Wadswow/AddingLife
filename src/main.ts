@@ -19,6 +19,7 @@ const map = leaflet.map("map").setView(initialCoord, 19);
 const grid = leaflet.layerGroup().addTo(map);
 const STORAGE_KEY = "adding-life-tokens";
 const HELD_KEY = "adding-life-held";
+let useGeolocation = true;
 
 leaflet.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19,
@@ -70,7 +71,10 @@ function applyGeoPosition(lat: number, lng: number, shouldCenter = true) {
 }
 
 function initGeolocation() {
-  if (!("geolocation" in navigator)) return;
+  if (!("geolocation" in navigator)) {
+    useGeolocation = false;
+    return;
+  }
   try {
     geoWatchId = navigator.geolocation.watchPosition(
       (pos) => {
@@ -89,6 +93,18 @@ function initGeolocation() {
   } catch (e) {
     console.warn("Failed to start geolocation:", e);
   }
+}
+
+function stopGeolocation() {
+  if (geoWatchId !== null) {
+    navigator.geolocation.clearWatch(geoWatchId);
+    geoWatchId = null;
+  }
+}
+
+function enableGeolocation() {
+  stopGeolocation();
+  initGeolocation();
 }
 
 const savedPosition = loadPlayerLocation();
@@ -122,6 +138,10 @@ document.body.appendChild(heldDiv);
 //Helper Functions
 function keyFor(i: number, j: number) {
   return `${i},${j}`;
+}
+
+function updateVisibility() {
+  moveButtons.style.display = useGeolocation ? "none" : "";
 }
 
 //held token persistence functions
@@ -174,9 +194,8 @@ function pickUp(key: string) {
   heldToken = grab.value;
   updateHeldUI();
   saveHeldToken();
-  if (heldToken >= 128) {
+  if (heldToken >= 256) {
     alert("Congratulations! You win!");
-    globalThis.location.reload();
   }
 }
 
@@ -372,6 +391,7 @@ function createMoveButton(
   button.innerHTML = symbol;
   button.className = `move-button ${direction}-button`;
   button.onclick = () => {
+    if (useGeolocation) return;
     const current = player.getLatLng();
     player.setLatLng(leaflet.latLng(
       current.lat + delta[0] * size,
@@ -392,6 +412,46 @@ moveButtons.append(
   createMoveButton("right", "→", [0, 1]),
 );
 
+function newGame() {
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(HELD_KEY);
+  localStorage.removeItem(PLAYER_STORAGE);
+  if (geoWatchId !== null) {
+    navigator.geolocation.clearWatch(geoWatchId);
+    geoWatchId = null;
+  }
+  globalThis.location.reload();
+}
+
+const newGameButton = document.createElement("button");
+newGameButton.className = "new-game-button";
+newGameButton.textContent = "New Game";
+newGameButton.onclick = () => {
+  if (confirm("Start a completely new game?\nAll progress will be lost.")) {
+    newGame();
+  }
+};
+document.body.appendChild(newGameButton);
+
+const toggleButton = document.createElement("button");
+toggleButton.className = "toggle-move-button";
+toggleButton.textContent = useGeolocation
+  ? "Use Movement Buttons"
+  : "Use Geolocation";
+toggleButton.onclick = () => {
+  useGeolocation = !useGeolocation;
+  if (useGeolocation) {
+    toggleButton.textContent = "Use Movement Buttons";
+    enableGeolocation();
+  } else {
+    toggleButton.textContent = "Use Geolocation";
+    stopGeolocation();
+  }
+  updateVisibility();
+};
+
+document.body.appendChild(toggleButton);
+
 //initialize and handle map movements
 map.on("moveend zoomend", drawGrid);
 player.on("move", () => {
@@ -400,3 +460,4 @@ player.on("move", () => {
   drawGrid();
 });
 drawGrid();
+updateVisibility();
